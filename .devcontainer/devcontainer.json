@@ -1,17 +1,17 @@
 {
-  "name": "Claude Code Workspace",
-  "image": "mcr.microsoft.com/devcontainers/universal:2",
-  "postCreateCommand": "npm install -g @anthropic-ai/claude-code",
-  "features": {
-    "ghcr.io/devcontainers/features/node:1": {
-      "version": "lts"
-    }
+  "name": "TCB Projects",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "postCreateCommand": "npm install",
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": { "label": "Dev Server", "onAutoForward": "openBrowser" }
   },
   "customizations": {
     "vscode": {
-      "settings": {
-        "terminal.integrated.defaultProfile.linux": "bash"
-      }
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode"
+      ]
     }
   }
 }
