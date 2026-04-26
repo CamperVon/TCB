@@ -39,7 +39,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function ProjectPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
 
-  const projRes = await sql`SELECT id, slug, title, role FROM projects WHERE slug = ${slug} LIMIT 1`;
+  const projRes = await sql`SELECT id, slug, title, role, author FROM projects WHERE slug = ${slug} LIMIT 1`;
   const project = projRes.rows[0];
   if (!project) notFound();
 
@@ -52,20 +52,21 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
     return <Gate projectId={project.id} title={project.title} role={project.role} showBack={masterAccess} />;
   }
 
-  // Load tabs and talent
-  const tabsRes = await sql`SELECT id, name, sort_order FROM tabs WHERE project_id = ${project.id} ORDER BY sort_order, created_at`;
-  const talentRes = await sql`
-    SELECT id, tab_id, name, age, imdb_id, photo_url, agency, agent, agent_contact,
-           deal_status, availability, notes, status, sort_order
-    FROM talent WHERE project_id = ${project.id}
-    ORDER BY sort_order, created_at
-  `;
+  // Load tabs, talent, and documents
+  const [tabsRes, talentRes, docsRes] = await Promise.all([
+    sql`SELECT id, name, sort_order FROM tabs WHERE project_id = ${project.id} ORDER BY sort_order, created_at`,
+    sql`SELECT id, tab_id, name, age, imdb_id, photo_url, agency, agent, agent_contact,
+               deal_status, availability, notes, status, sort_order
+        FROM talent WHERE project_id = ${project.id} ORDER BY sort_order, created_at`,
+    sql`SELECT id, name, url, size, type FROM documents WHERE project_id = ${project.id} ORDER BY created_at DESC`,
+  ]);
 
   return (
     <ProjectClient
       project={project as any}
       tabs={tabsRes.rows as any}
       initialTalent={talentRes.rows as any}
+      initialDocs={docsRes.rows as any}
       showBack={masterAccess}
     />
   );

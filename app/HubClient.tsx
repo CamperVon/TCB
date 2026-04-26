@@ -78,6 +78,7 @@ export default function HubClient({ projects }: { projects: Project[] }) {
 function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [title, setTitle] = useState('');
   const [role, setRole] = useState('');
+  const [author, setAuthor] = useState('');
   const [slug, setSlug] = useState('');
   const [password, setPassword] = useState('');
   const [masterPw, setMasterPw] = useState('');
@@ -98,7 +99,7 @@ function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreate
     const res = await fetch('/api/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, role, slug: autoSlug(slug), password, masterPassword: masterPw }),
+      body: JSON.stringify({ title, role, author, slug: autoSlug(slug), password, masterPassword: masterPw }),
     });
     setBusy(false);
     if (!res.ok) {
@@ -120,6 +121,10 @@ function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreate
         <div className="field">
           <label>Role / Tagline</label>
           <input value={role} onChange={e => setRole(e.target.value)} placeholder="e.g. Anson Lime · Lead" />
+        </div>
+        <div className="field">
+          <label>Written by</label>
+          <input value={author} onChange={e => setAuthor(e.target.value)} placeholder="Author name(s)" />
         </div>
         <div className="field">
           <label>Slug (used in URL)</label>

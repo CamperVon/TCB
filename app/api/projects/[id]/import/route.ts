@@ -29,12 +29,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
 
   const formData = await req.formData();
-  const file = formData.get('file') as File;
+  const file = formData.get('file') as File | null;
+  const pastedText = formData.get('text') as string | null;
   const tabId = formData.get('tab_id') as string | null;
 
-  if (!file) return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
+  if (!file && !pastedText) return NextResponse.json({ error: 'No file or text provided' }, { status: 400 });
 
-  const text = await extractText(file);
+  const text = pastedText || await extractText(file!);
 
   // Use Claude to parse talent from casting document
   const message = await anthropic.messages.create({

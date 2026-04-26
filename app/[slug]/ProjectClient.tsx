@@ -3,7 +3,8 @@ import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-type Project = { id: string; slug: string; title: string; role: string | null };
+type Project = { id: string; slug: string; title: string; role: string | null; author: string | null };
+type Doc = { id: string; name: string; url: string; size: number | null; type: string | null };
 type Tab = { id: string; name: string; sort_order: number };
 type Talent = {
   id: string; tab_id: string | null; name: string; age: number | null;
@@ -13,16 +14,20 @@ type Talent = {
   status: 'active' | 'pass'; sort_order: number;
 };
 
-export default function ProjectClient({ project, tabs: initialTabs, initialTalent, showBack }: {
-  project: Project; tabs: Tab[]; initialTalent: Talent[]; showBack?: boolean;
+export default function ProjectClient({ project, tabs: initialTabs, initialTalent, initialDocs, showBack }: {
+  project: Project; tabs: Tab[]; initialTalent: Talent[]; initialDocs: Doc[]; showBack?: boolean;
 }) {
   const router = useRouter();
   const [tabs, setTabs] = useState<Tab[]>(initialTabs);
   const [talent, setTalent] = useState<Talent[]>(initialTalent);
   const [activeTabId, setActiveTabId] = useState<string | null>(initialTabs[0]?.id ?? null);
+  const [docs, setDocs] = useState<Doc[]>(initialDocs);
   const [showAdd, setShowAdd] = useState(false);
   const [showNewTab, setShowNewTab] = useState(false);
+  const [showImportPaste, setShowImportPaste] = useState(false);
+  const [showDocs, setShowDocs] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
 
   function toast(msg: string) { setToastMsg(msg); setTimeout(() => setToastMsg(''), 1800); }
@@ -47,10 +52,11 @@ export default function ProjectClient({ project, tabs: initialTabs, initialTalen
     }
   }
 
-  async function importFile(file: File) {
+  async function importData(file?: File, text?: string) {
     setImporting(true);
     const form = new FormData();
-    form.append('file', file);
+    if (file) form.append('file', file);
+    if (text) form.append('text', text);
     if (activeTabId) form.append('tab_id', activeTabId);
     const res = await fetch(`/api/projects/${project.id}/import`, { method: 'POST', body: form });
     setImporting(false);
@@ -58,9 +64,35 @@ export default function ProjectClient({ project, tabs: initialTabs, initialTalen
       const data = await res.json();
       await refreshAll();
       toast(`Imported ${data.imported} talent`);
+      setShowImportPaste(false);
     } else {
       toast('Import failed');
     }
+  }
+
+  async function uploadDoc(file: File) {
+    setUploadingDoc(true);
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch(`/api/projects/${project.id}/documents`, { method: 'POST', body: form });
+    setUploadingDoc(false);
+    if (res.ok) {
+      const doc = await res.json();
+      setDocs([doc, ...docs]);
+      toast('Document uploaded');
+    } else {
+      toast('Upload failed');
+    }
+  }
+
+  async function deleteDoc(docId: string) {
+    await fetch(`/api/projects/${project.id}/documents`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ docId }),
+    });
+    setDocs(docs.filter(d => d.id !== docId));
+    toast('Removed');
   }
 
   async function addTab(name: string) {
@@ -179,8 +211,38 @@ export default function ProjectClient({ project, tabs: initialTabs, initialTalen
       </div>
 
       <div className="hero">
-        <h1>{project.title}</h1>
-        <div className="sub">Talent Tracker {project.role && <span className="role">· {project.role}</span>}</div>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <div>
+            <h1>{project.title}</h1>
+            <div className="sub">
+              Talent Tracker
+              {project.role && <span className="role"> · {project.role}</span>}
+              {project.author && <span className="role"> · Written by {project.author}</span>}
+            </div>
+          </div>
+          <label style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, marginTop: 8 }}>
+            <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => setShowDocs(!showDocs)}>
+              📄 {docs.length} doc{docs.length !== 1 ? 's' : ''}
+            </button>
+          </label>
+        </div>
+        {showDocs && (
+          <div style={{ marginTop: 16, padding: '16px 20px', background: 'var(--bg-2)', border: '1px solid var(--rule)', borderRadius: 4 }}>
+            {docs.length === 0 && <div style={{ color: 'var(--ink-faint)', fontSize: 13, marginBottom: 12 }}>No documents yet.</div>}
+            {docs.map(d => (
+              <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                <a href={d.url} target="_blank" rel="noopener noreferrer" style={{ flex: 1, fontSize: 13, color: 'var(--gold-deep)' }}>{d.name}</a>
+                <button className="btn btn-ghost" style={{ fontSize: 10, padding: '2px 8px' }} onClick={() => deleteDoc(d.id)}>✕</button>
+              </div>
+            ))}
+            <label className="btn btn-ghost" style={{ cursor: 'pointer', fontSize: 11, marginTop: 8 }}>
+              {uploadingDoc ? 'Uploading...' : '+ Upload Document'}
+              <input type="file" style={{ display: 'none' }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) uploadDoc(f); e.target.value = ''; }}
+              />
+            </label>
+          </div>
+        )}
       </div>
 
       <div className="tracker-header">
@@ -188,11 +250,12 @@ export default function ProjectClient({ project, tabs: initialTabs, initialTalen
         <div className="tracker-actions">
           <button className="btn" onClick={() => setShowAdd(!showAdd)}>+ Add Talent</button>
           <label className="btn btn-ghost" style={{ cursor: 'pointer' }}>
-            {importing ? 'Importing...' : 'Import List'}
+            {importing ? 'Importing...' : 'Import File'}
             <input type="file" accept=".pdf,.doc,.docx" style={{ display: 'none' }}
-              onChange={e => { const f = e.target.files?.[0]; if (f) importFile(f); e.target.value = ''; }}
+              onChange={e => { const f = e.target.files?.[0]; if (f) importData(f); e.target.value = ''; }}
             />
           </label>
+          <button className="btn btn-ghost" onClick={() => setShowImportPaste(!showImportPaste)}>Paste List</button>
           <button className="btn btn-ghost" onClick={copyLink}>Copy Link</button>
         </div>
       </div>
@@ -247,6 +310,14 @@ export default function ProjectClient({ project, tabs: initialTabs, initialTalen
         <NewTabModal
           onSave={(name) => { addTab(name); setShowNewTab(false); }}
           onClose={() => setShowNewTab(false)}
+        />
+      )}
+
+      {showImportPaste && (
+        <PasteImportModal
+          busy={importing}
+          onImport={(text) => importData(undefined, text)}
+          onClose={() => setShowImportPaste(false)}
         />
       )}
 
@@ -497,6 +568,34 @@ function AddTalentForm({ onAdd, onCancel }: {
       <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
         <button className="btn btn-ghost" onClick={onCancel} disabled={busy}>Cancel</button>
         <button className="btn" onClick={handleAdd} disabled={busy || !name.trim()}>Add</button>
+      </div>
+    </div>
+  );
+}
+
+function PasteImportModal({ onImport, onClose, busy }: { onImport: (text: string) => void; onClose: () => void; busy: boolean }) {
+  const [text, setText] = useState('');
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 580 }} onClick={e => e.stopPropagation()}>
+        <h3>Paste Casting List</h3>
+        <div className="field">
+          <label>Paste any casting document text below</label>
+          <textarea
+            className="notes"
+            style={{ minHeight: 200 }}
+            value={text}
+            onChange={e => setText(e.target.value)}
+            placeholder="Paste casting list, breakdown, or any talent info here..."
+            autoFocus
+          />
+        </div>
+        <div className="modal-actions">
+          <button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button>
+          <button className="btn" onClick={() => text.trim() && onImport(text.trim())} disabled={busy || !text.trim()}>
+            {busy ? 'Importing...' : 'Import'}
+          </button>
+        </div>
       </div>
     </div>
   );

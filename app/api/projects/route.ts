@@ -10,7 +10,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { title, role, slug, password, masterPassword } = body;
+  const { title, role, author, slug, password, masterPassword } = body;
 
   if (!title || !slug || !password || !masterPassword) {
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
@@ -29,8 +29,8 @@ export async function POST(req: NextRequest) {
   const id = generateId('p_');
   const hash = await bcrypt.hash(password, 10);
   await sql`
-    INSERT INTO projects (id, slug, title, role, password_hash, password)
-    VALUES (${id}, ${cleanSlug}, ${title}, ${role || null}, ${hash}, ${password})
+    INSERT INTO projects (id, slug, title, role, author, password_hash, password)
+    VALUES (${id}, ${cleanSlug}, ${title}, ${role || null}, ${author || null}, ${hash}, ${password})
   `;
 
   // Seed a default tab
