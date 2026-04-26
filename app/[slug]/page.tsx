@@ -1,5 +1,5 @@
 import { sql } from '@/lib/db';
-import { hasProjectAccess } from '@/lib/session';
+import { hasProjectAccess, hasMasterAccess } from '@/lib/session';
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
 import Gate from './Gate';
@@ -43,9 +43,13 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
   const project = projRes.rows[0];
   if (!project) notFound();
 
-  const hasAccess = await hasProjectAccess(project.id);
+  const [hasAccess, masterAccess] = await Promise.all([
+    hasProjectAccess(project.id),
+    hasMasterAccess(),
+  ]);
+
   if (!hasAccess) {
-    return <Gate projectId={project.id} title={project.title} role={project.role} />;
+    return <Gate projectId={project.id} title={project.title} role={project.role} showBack={masterAccess} />;
   }
 
   // Load tabs and talent
@@ -62,6 +66,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
       project={project as any}
       tabs={tabsRes.rows as any}
       initialTalent={talentRes.rows as any}
+      showBack={masterAccess}
     />
   );
 }

@@ -13,8 +13,8 @@ type Talent = {
   status: 'active' | 'pass'; sort_order: number;
 };
 
-export default function ProjectClient({ project, tabs: initialTabs, initialTalent }: {
-  project: Project; tabs: Tab[]; initialTalent: Talent[];
+export default function ProjectClient({ project, tabs: initialTabs, initialTalent, showBack }: {
+  project: Project; tabs: Tab[]; initialTalent: Talent[]; showBack?: boolean;
 }) {
   const router = useRouter();
   const [tabs, setTabs] = useState<Tab[]>(initialTabs);
@@ -158,7 +158,7 @@ export default function ProjectClient({ project, tabs: initialTabs, initialTalen
     <div className="shell">
       <div className="topbar">
         <span className="brand">◈ The Camp Brand · Projects</span>
-        <Link href="/"><button className="btn btn-ghost">← All Projects</button></Link>
+        {showBack && <Link href="/"><button className="btn btn-ghost">← All Projects</button></Link>}
       </div>
 
       <div className="hero">

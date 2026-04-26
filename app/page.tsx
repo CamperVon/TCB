@@ -1,9 +1,14 @@
 import { sql } from '@/lib/db';
+import { hasMasterAccess } from '@/lib/session';
 import HubClient from './HubClient';
+import MasterGate from './MasterGate';
 
 export const dynamic = 'force-dynamic';
 
 export default async function HubPage() {
+  const hasAccess = await hasMasterAccess();
+  if (!hasAccess) return <MasterGate />;
+
   const { rows } = await sql<{
     id: string; slug: string; title: string; role: string | null;
     talent_count: number; password: string | null;

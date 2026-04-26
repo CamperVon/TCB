@@ -1,9 +1,8 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 
-export default function Gate({ projectId, title, role, showBack }: { projectId: string; title: string; role: string | null; showBack?: boolean }) {
+export default function MasterGate() {
   const router = useRouter();
   const [pw, setPw] = useState('');
   const [error, setError] = useState('');
@@ -12,16 +11,13 @@ export default function Gate({ projectId, title, role, showBack }: { projectId: 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(''); setBusy(true);
-    const res = await fetch(`/api/projects/${projectId}/auth`, {
+    const res = await fetch('/api/master/auth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: pw }),
     });
     setBusy(false);
-    if (!res.ok) {
-      setError('Incorrect password');
-      return;
-    }
+    if (!res.ok) { setError('Incorrect password'); return; }
     router.refresh();
   }
 
@@ -29,17 +25,15 @@ export default function Gate({ projectId, title, role, showBack }: { projectId: 
     <div className="shell">
       <div className="topbar">
         <span className="brand">◈ The Camp Brand · Projects</span>
-        {showBack && <Link href="/"><button className="btn btn-ghost">← All Projects</button></Link>}
       </div>
-
       <form className="gate" onSubmit={submit}>
-        <h2>{title}</h2>
-        <p>{role || 'Untitled role'}</p>
+        <h2>Projects</h2>
+        <p>The Camp Brand</p>
         <input
           type="password"
           value={pw}
           onChange={e => setPw(e.target.value)}
-          placeholder="Enter password"
+          placeholder="Enter master password"
           autoFocus
         />
         <div className="gate-actions">
