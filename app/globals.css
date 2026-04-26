@@ -362,7 +362,7 @@ input, textarea, select, button { font-family: inherit; color: inherit; }
 .modal .field { margin-bottom: 16px; }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; flex-wrap: wrap; }
 
-code { font-family: 'JetBrains Mono', monospace; font-size: 14px; }
+code, .password { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 500; }
 
 @media (max-width: 600px) {
   .talent-row { grid-template-columns: 20px 48px 1fr; grid-template-rows: auto auto; }

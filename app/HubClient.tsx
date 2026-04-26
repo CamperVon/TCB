@@ -54,7 +54,7 @@ export default function HubClient({ projects }: { projects: Project[] }) {
           <Link key={p.id} href={`/${p.slug}`} className="project-card">
             <h3>{p.title}</h3>
             <div className="role-tag">{p.role || '—'}</div>
-            {p.password && <div className="password-tag">pw: <code>{p.password}</code></div>}
+            {p.password && <div className="password-tag">pw: <span className="password">{p.password}</span></div>}
             <div className="meta">
               <span>{p.talent_count} talent</span>
               <button

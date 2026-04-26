@@ -1,10 +1,40 @@
 import { sql } from '@/lib/db';
 import { hasProjectAccess } from '@/lib/session';
 import { notFound } from 'next/navigation';
+import { Metadata } from 'next';
 import Gate from './Gate';
 import ProjectClient from './ProjectClient';
 
 export const dynamic = 'force-dynamic';
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const projRes = await sql`SELECT id, slug, title, role FROM projects WHERE slug = ${slug} LIMIT 1`;
+  const project = projRes.rows[0];
+
+  if (!project) return {};
+
+  const title = project.title;
+  const description = `Talent tracker for ${project.title}${project.role ? ' — ' + project.role : ''}`;
+  const url = `https://projects.thecampbrand.com/${slug}`;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url,
+      type: 'website',
+      siteName: '◈ The Camp Brand · Projects',
+    },
+    twitter: {
+      card: 'summary',
+      title,
+      description,
+    },
+  };
+}
 
 export default async function ProjectPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
