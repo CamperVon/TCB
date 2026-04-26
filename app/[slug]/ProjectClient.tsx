@@ -184,10 +184,7 @@ export default function ProjectClient({ project, tabs: initialTabs, initialTalen
       </div>
 
       <div className="tracker-header">
-        <div className="section-label">
-          <span>The List</span>
-          <span className="count">({visibleTalent.length})</span>
-        </div>
+        <div></div>
         <div className="tracker-actions">
           <button className="btn" onClick={() => setShowAdd(!showAdd)}>+ Add Talent</button>
           <label className="btn btn-ghost" style={{ cursor: 'pointer' }}>
