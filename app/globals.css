@@ -362,7 +362,8 @@ input, textarea, select, button { font-family: inherit; color: inherit; }
 .modal .field { margin-bottom: 16px; }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; flex-wrap: wrap; }
 
-code, .password { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 500; }
+code, .password { font-family: 'JetBrains Mono', monospace !important; font-size: 13px; font-weight: 500; }
+.password-tag { font-size: 12px; color: var(--ink-dim); margin-top: 4px; }
 
 @media (max-width: 600px) {
   .talent-row { grid-template-columns: 20px 48px 1fr; grid-template-rows: auto auto; }
