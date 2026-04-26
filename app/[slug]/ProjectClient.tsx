@@ -359,6 +359,12 @@ function TalentRow({ talent, onUpdate, onRemove, onReorder }: {
             </div>
           </div>
           <div className="detail-actions">
+            <a
+              className="btn btn-ghost"
+              href={talent.imdb_id ? `https://pro.imdb.com/name/${talent.imdb_id}` : `https://pro.imdb.com/find?q=${encodeURIComponent(talent.name)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >IMDbPro ↗</a>
             <button className="btn btn-danger" onClick={() => onRemove(talent.id)}>Remove</button>
           </div>
         </div>
