@@ -368,39 +368,29 @@ function TalentRow({ talent, onUpdate, onRemove, onReorder }: {
 }
 
 function ImdbRefresh({ talent, onUpdate }: { talent: Talent; onUpdate: (id: string, patch: Partial<Talent>) => void }) {
-  const [imdbInput, setImdbInput] = useState(talent.imdb_id ?? '');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
 
-  async function lookup() {
-    if (!imdbInput.trim()) return;
+  async function lookupByName() {
     setBusy(true); setMsg('');
-    const id = imdbInput.trim();
-    const res = await fetch(`/api/tmdb/by-imdb/${encodeURIComponent(id)}`);
+    const res = await fetch(`/api/tmdb/search/${encodeURIComponent(talent.name)}`);
     setBusy(false);
     if (!res.ok) { setMsg('Not found on TMDb'); return; }
     const data = await res.json();
     onUpdate(talent.id, {
-      imdb_id: data.imdb_id,
+      imdb_id: data.imdb_id || talent.imdb_id,
       photo_url: data.photo_url ?? talent.photo_url,
       age: data.age ?? talent.age,
     });
-    setMsg('Updated from TMDb');
+    setMsg('Updated ✓');
     setTimeout(() => setMsg(''), 2000);
   }
 
   return (
     <div className="imdb-lookup">
-      <div className="field">
-        <label>IMDb ID</label>
-        <input
-          value={imdbInput}
-          onChange={e => setImdbInput(e.target.value)}
-          placeholder="nm0262635"
-        />
-        <small>Find on imdb.com — the URL has nmXXXXXXX</small>
-      </div>
-      <button className="btn btn-ghost" onClick={lookup} disabled={busy}>{busy ? '...' : 'Pull from TMDb'}</button>
+      <button className="btn btn-ghost" onClick={lookupByName} disabled={busy}>
+        {busy ? '...' : 'Pull from TMDb'}
+      </button>
       {msg && <small style={{ color: 'var(--gold-deep)', marginLeft: 8 }}>{msg}</small>}
     </div>
   );
