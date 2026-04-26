@@ -287,7 +287,7 @@ input, textarea, select, button { font-family: inherit; color: inherit; }
 
 .detail-row {
   grid-column: 1 / -1;
-  padding: 20px 0 8px 72px;
+  padding: 20px 20px 8px 72px;
   display: none;
   border-top: 1px solid var(--rule); margin-top: 14px;
 }

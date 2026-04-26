@@ -22,6 +22,7 @@ export default function ProjectClient({ project, tabs: initialTabs, initialTalen
   const [activeTabId, setActiveTabId] = useState<string | null>(initialTabs[0]?.id ?? null);
   const [showAdd, setShowAdd] = useState(false);
   const [showNewTab, setShowNewTab] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
 
   function toast(msg: string) { setToastMsg(msg); setTimeout(() => setToastMsg(''), 1800); }
@@ -43,6 +44,22 @@ export default function ProjectClient({ project, tabs: initialTabs, initialTalen
       const data = await res.json();
       setTabs(data.tabs);
       setTalent(data.talent);
+    }
+  }
+
+  async function importFile(file: File) {
+    setImporting(true);
+    const form = new FormData();
+    form.append('file', file);
+    if (activeTabId) form.append('tab_id', activeTabId);
+    const res = await fetch(`/api/projects/${project.id}/import`, { method: 'POST', body: form });
+    setImporting(false);
+    if (res.ok) {
+      const data = await res.json();
+      await refreshAll();
+      toast(`Imported ${data.imported} talent`);
+    } else {
+      toast('Import failed');
     }
   }
 
@@ -173,6 +190,12 @@ export default function ProjectClient({ project, tabs: initialTabs, initialTalen
         </div>
         <div className="tracker-actions">
           <button className="btn" onClick={() => setShowAdd(!showAdd)}>+ Add Talent</button>
+          <label className="btn btn-ghost" style={{ cursor: 'pointer' }}>
+            {importing ? 'Importing...' : 'Import List'}
+            <input type="file" accept=".pdf,.doc,.docx" style={{ display: 'none' }}
+              onChange={e => { const f = e.target.files?.[0]; if (f) importFile(f); e.target.value = ''; }}
+            />
+          </label>
           <button className="btn btn-ghost" onClick={copyLink}>Copy Link</button>
         </div>
       </div>
