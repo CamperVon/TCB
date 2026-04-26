@@ -413,27 +413,54 @@ function AddTalentForm({ onAdd, onCancel }: {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [agency, setAgency] = useState('');
+  const [tmdbData, setTmdbData] = useState<any>(null);
+  const [searching, setSearching] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  async function searchTmdb(n: string) {
+    if (!n.trim()) return;
+    setSearching(true);
+    try {
+      const res = await fetch(`/api/tmdb/search/${encodeURIComponent(n.trim())}`);
+      if (res.ok) {
+        const data = await res.json();
+        setTmdbData(data);
+        if (!age) setAge(data.age?.toString() || '');
+      }
+    } finally {
+      setSearching(false);
+    }
+  }
 
   async function handleAdd() {
     if (!name.trim()) return;
     setBusy(true);
     const payload: any = {
       name: name.trim(),
-      age: age ? parseInt(age) : null,
+      age: age ? parseInt(age) : tmdbData?.age || null,
       agency: agency.trim(),
+      imdb_id: tmdbData?.imdb_id || null,
+      photo_url: tmdbData?.photo_url || null,
     };
     await onAdd(payload);
     setBusy(false);
-    setName(''); setAge(''); setAgency('');
+    setName(''); setAge(''); setAgency(''); setTmdbData(null);
   }
 
   return (
     <div className="add-form open">
       <div className="add-form-row">
         <div className="field" style={{ flex: 1 }}>
-          <label>Name</label>
-          <input value={name} onChange={e => setName(e.target.value)} placeholder="First Last" autoFocus />
+          <label>Name {searching && <span style={{ color: 'var(--ink-faint)', fontSize: 11 }}>searching TMDb...</span>}
+            {tmdbData && !searching && <span style={{ color: 'var(--gold-deep)', fontSize: 11 }}>✓ found on TMDb</span>}
+          </label>
+          <input
+            value={name}
+            onChange={e => setName(e.target.value)}
+            onBlur={e => searchTmdb(e.target.value)}
+            placeholder="First Last"
+            autoFocus
+          />
         </div>
         <div className="field" style={{ maxWidth: 100 }}>
           <label>Age</label>
@@ -444,7 +471,6 @@ function AddTalentForm({ onAdd, onCancel }: {
           <input value={agency} onChange={e => setAgency(e.target.value)} placeholder="CAA/WME/UTA" />
         </div>
       </div>
-      <small style={{ color: 'var(--ink-faint)' }}>Add photos: expand row → "Pull from TMDb" (enter IMDb ID)</small>
       <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
         <button className="btn btn-ghost" onClick={onCancel} disabled={busy}>Cancel</button>
         <button className="btn" onClick={handleAdd} disabled={busy || !name.trim()}>Add</button>
