@@ -425,12 +425,19 @@ function AddTalentForm({ onAdd, onCancel }: {
   async function handleAdd() {
     if (!name.trim()) return;
     setBusy(true);
+    let resolved = tmdbData;
+    if (!resolved) {
+      try {
+        const res = await fetch(`/api/tmdb/search/${encodeURIComponent(name.trim())}`);
+        if (res.ok) resolved = await res.json();
+      } catch {}
+    }
     const payload: any = {
       name: name.trim(),
-      age: age ? parseInt(age) : tmdbData?.age || null,
+      age: age ? parseInt(age) : resolved?.age || null,
       agency: agency.trim(),
-      imdb_id: tmdbData?.imdb_id || null,
-      photo_url: tmdbData?.photo_url || null,
+      imdb_id: resolved?.imdb_id || null,
+      photo_url: resolved?.photo_url || null,
     };
     await onAdd(payload);
     setBusy(false);
