@@ -49,14 +49,14 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
   ]);
 
   if (!hasAccess) {
-    return <Gate projectId={project.id} title={project.title} role={project.role} showBack={masterAccess} />;
+    return <Gate projectId={project.id} title={project.title} showBack={masterAccess} />;
   }
 
   // Load tabs, talent, and documents
   const [tabsRes, talentRes, docsRes] = await Promise.all([
     sql`SELECT id, name, sort_order FROM tabs WHERE project_id = ${project.id} ORDER BY sort_order, created_at`,
     sql`SELECT id, tab_id, name, age, imdb_id, photo_url, agency, agent, agent_contact,
-               deal_status, availability, notes, status, sort_order
+               manager, manager_contact, deal_status, availability, notes, status, sort_order
         FROM talent WHERE project_id = ${project.id} ORDER BY sort_order, created_at`,
     sql`SELECT id, name, url, size, type FROM documents WHERE project_id = ${project.id} ORDER BY created_at DESC`,
   ]);

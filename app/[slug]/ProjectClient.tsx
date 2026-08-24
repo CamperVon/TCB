@@ -10,6 +10,7 @@ type Talent = {
   id: string; tab_id: string | null; name: string; age: number | null;
   imdb_id: string | null; photo_url: string | null;
   agency: string | null; agent: string | null; agent_contact: string | null;
+  manager: string | null; manager_contact: string | null;
   deal_status: string | null; availability: string | null; notes: string | null;
   status: 'active' | 'pass'; sort_order: number;
 };
@@ -27,6 +28,7 @@ export default function ProjectClient({ project, tabs: initialTabs, initialTalen
   const [showImportPaste, setShowImportPaste] = useState(false);
   const [showDocs, setShowDocs] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
 
@@ -52,6 +54,20 @@ export default function ProjectClient({ project, tabs: initialTabs, initialTalen
     }
   }
 
+  async function syncProject() {
+    setSyncing(true);
+    toast('Syncing...');
+    const res = await fetch(`/api/projects/${project.id}/sync`, { method: 'POST' });
+    setSyncing(false);
+    if (res.ok) {
+      const data = await res.json();
+      await refreshAll();
+      toast(data.updated > 0 ? `Updated ${data.updated} of ${data.total} talent` : 'Everything up to date');
+    } else {
+      toast('Sync failed');
+    }
+  }
+
   async function importData(file?: File, text?: string) {
     setImporting(true);
     const form = new FormData();
@@ -63,10 +79,14 @@ export default function ProjectClient({ project, tabs: initialTabs, initialTalen
     if (res.ok) {
       const data = await res.json();
       await refreshAll();
-      toast(`Imported ${data.imported} talent`);
+      const parts = [];
+      if (data.imported > 0) parts.push(`${data.imported} added`);
+      if (data.updated > 0) parts.push(`${data.updated} updated`);
+      toast(parts.length ? parts.join(', ') : 'Nothing new found');
       setShowImportPaste(false);
     } else {
-      toast('Import failed');
+      const j = await res.json().catch(() => ({}));
+      toast(j.error || 'Import failed');
     }
   }
 
@@ -159,7 +179,7 @@ export default function ProjectClient({ project, tabs: initialTabs, initialTalen
     toast('Removed');
   }
 
-  async function addTalentRow(payload: any) {
+  async function addTalentRow(payload: any): Promise<string | true> {
     const res = await fetch(`/api/projects/${project.id}/talent`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -167,11 +187,12 @@ export default function ProjectClient({ project, tabs: initialTabs, initialTalen
     });
     if (res.ok) {
       const newT = await res.json();
-      setTalent([...talent, newT]);
+      setTalent([newT, ...talent]);
       toast('Added');
       return true;
     }
-    return false;
+    const j = await res.json().catch(() => ({}));
+    return j.error || 'Failed to add';
   }
 
   async function reorderTalent(srcId: string, targetId: string, placeAbove: boolean) {
@@ -203,6 +224,44 @@ export default function ProjectClient({ project, tabs: initialTabs, initialTalen
     return m;
   }, [talent]);
 
+  // Auto-scroll the page when dragging near the top or bottom edge
+  useEffect(() => {
+    let rafId: number | null = null;
+    let scrollDir = 0;
+
+    function tick() {
+      if (scrollDir !== 0) {
+        window.scrollBy(0, scrollDir * 10);
+        rafId = requestAnimationFrame(tick);
+      }
+    }
+
+    function onDragOver(e: DragEvent) {
+      const ZONE = 80;
+      const y = e.clientY;
+      const h = window.innerHeight;
+      if (y < ZONE) scrollDir = -1;
+      else if (y > h - ZONE) scrollDir = 1;
+      else scrollDir = 0;
+      if (rafId === null && scrollDir !== 0) rafId = requestAnimationFrame(tick);
+    }
+
+    function onDragEnd() {
+      scrollDir = 0;
+      if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+    }
+
+    document.addEventListener('dragover', onDragOver);
+    document.addEventListener('dragend', onDragEnd);
+    document.addEventListener('drop', onDragEnd);
+    return () => {
+      document.removeEventListener('dragover', onDragOver);
+      document.removeEventListener('dragend', onDragEnd);
+      document.removeEventListener('drop', onDragEnd);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
+  }, []);
+
   return (
     <div className="shell">
       <div className="topbar">
@@ -216,7 +275,6 @@ export default function ProjectClient({ project, tabs: initialTabs, initialTalen
             <h1>{project.title}</h1>
             <div className="sub">
               Talent Tracker
-              {project.role && <span className="role"> · {project.role}</span>}
               {project.author && <span className="role"> · Written by {project.author}</span>}
             </div>
           </div>
@@ -256,6 +314,11 @@ export default function ProjectClient({ project, tabs: initialTabs, initialTalen
             />
           </label>
           <button className="btn btn-ghost" onClick={() => setShowImportPaste(!showImportPaste)}>Paste List</button>
+          {activeTabId && (
+            <button className="btn btn-ghost" onClick={() => window.open(`/${project.slug}/export?tab=${activeTabId}`, '_blank')}>Export List</button>
+          )}
+          <button className="btn btn-ghost" onClick={() => window.open(`/${project.slug}/export`, '_blank')}>Export All</button>
+          <button className="btn btn-ghost" onClick={syncProject} disabled={syncing}>{syncing ? 'Syncing...' : 'Sync'}</button>
           <button className="btn btn-ghost" onClick={copyLink}>Copy Link</button>
         </div>
       </div>
@@ -285,26 +348,43 @@ export default function ProjectClient({ project, tabs: initialTabs, initialTalen
 
       {showAdd && (
         <AddTalentForm
-          onAdd={async (p) => { const ok = await addTalentRow(p); if (ok) setShowAdd(false); }}
+          onAdd={async (p) => { const result = await addTalentRow(p); if (result === true) setShowAdd(false); return result; }}
           onCancel={() => setShowAdd(false)}
         />
       )}
 
-      <ul className="talent-list">
-        {visibleTalent.length === 0 ? (
-          <li className="empty">No talent in this tab yet. Click + Add Talent to start.</li>
-        ) : (
-          visibleTalent.map(t => (
-            <TalentRow
-              key={t.id}
-              talent={t}
-              onUpdate={updateTalent}
-              onRemove={removeTalent}
-              onReorder={reorderTalent}
-            />
-          ))
-        )}
-      </ul>
+      {(() => {
+        const active = visibleTalent.filter(t => t.status !== 'pass');
+        const passes = visibleTalent.filter(t => t.status === 'pass');
+        return (
+          <>
+            <ul className="talent-list">
+              {active.length === 0 && passes.length === 0 ? (
+                <li className="empty">No talent in this tab yet. Click + Add Talent to start.</li>
+              ) : active.length === 0 ? (
+                <li className="empty">No active talent.</li>
+              ) : (
+                active.map(t => (
+                  <TalentRow key={t.id} talent={t} onUpdate={updateTalent} onRemove={removeTalent} onReorder={reorderTalent} />
+                ))
+              )}
+            </ul>
+            {passes.length > 0 && (
+              <>
+                <div className="section-label" style={{ marginTop: 24 }}>
+                  <span>Passes</span>
+                  <span className="count">({passes.length})</span>
+                </div>
+                <ul className="talent-list">
+                  {passes.map(t => (
+                    <TalentRow key={t.id} talent={t} onUpdate={updateTalent} onRemove={removeTalent} onReorder={reorderTalent} />
+                  ))}
+                </ul>
+              </>
+            )}
+          </>
+        );
+      })()}
 
       {showNewTab && (
         <NewTabModal
@@ -412,10 +492,26 @@ function TalentRow({ talent, onUpdate, onRemove, onReorder }: {
               />
             </div>
             <div className="field">
-              <label>Contact</label>
+              <label>Agent Contact</label>
               <input
                 defaultValue={talent.agent_contact ?? ''}
                 onBlur={e => onUpdate(talent.id, { agent_contact: e.target.value })}
+                placeholder="email / phone"
+              />
+            </div>
+            <div className="field">
+              <label>Manager</label>
+              <input
+                defaultValue={talent.manager ?? ''}
+                onBlur={e => onUpdate(talent.id, { manager: e.target.value })}
+                placeholder="First Last"
+              />
+            </div>
+            <div className="field">
+              <label>Manager Contact</label>
+              <input
+                defaultValue={talent.manager_contact ?? ''}
+                onBlur={e => onUpdate(talent.id, { manager_contact: e.target.value })}
                 placeholder="email / phone"
               />
             </div>
@@ -494,25 +590,41 @@ function ImdbRefresh({ talent, onUpdate }: { talent: Talent; onUpdate: (id: stri
 }
 
 function AddTalentForm({ onAdd, onCancel }: {
-  onAdd: (p: any) => Promise<void> | void;
+  onAdd: (p: any) => Promise<string | true>;
   onCancel: () => void;
 }) {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [agency, setAgency] = useState('');
+  const [agent, setAgent] = useState('');
+  const [manager, setManager] = useState('');
   const [tmdbData, setTmdbData] = useState<any>(null);
   const [searching, setSearching] = useState(false);
+  const [knownRep, setKnownRep] = useState(false);
+  const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  async function searchTmdb(n: string) {
+  async function lookupAll(n: string) {
     if (!n.trim()) return;
     setSearching(true);
     try {
-      const res = await fetch(`/api/tmdb/search/${encodeURIComponent(n.trim())}`);
-      if (res.ok) {
-        const data = await res.json();
+      const [tmdbRes, repRes] = await Promise.all([
+        fetch(`/api/tmdb/search/${encodeURIComponent(n.trim())}`),
+        fetch(`/api/talent/lookup?name=${encodeURIComponent(n.trim())}`),
+      ]);
+      if (tmdbRes.ok) {
+        const data = await tmdbRes.json();
         setTmdbData(data);
         if (!age) setAge(data.age?.toString() || '');
+      }
+      if (repRes.ok) {
+        const rep = await repRes.json();
+        if (rep) {
+          setKnownRep(true);
+          if (!agency && rep.agency) setAgency(rep.agency);
+          if (!agent && rep.agent) setAgent(rep.agent);
+          if (!manager && rep.manager) setManager(rep.manager);
+        }
       }
     } finally {
       setSearching(false);
@@ -532,39 +644,57 @@ function AddTalentForm({ onAdd, onCancel }: {
     const payload: any = {
       name: name.trim(),
       age: age ? parseInt(age) : resolved?.age || null,
-      agency: agency.trim(),
+      agency: agency.trim() || null,
+      agent: agent.trim() || null,
+      manager: manager.trim() || null,
       imdb_id: resolved?.imdb_id || null,
       photo_url: resolved?.photo_url || null,
     };
-    await onAdd(payload);
+    const result = await onAdd(payload);
     setBusy(false);
-    setName(''); setAge(''); setAgency(''); setTmdbData(null);
+    if (result === true) {
+      setName(''); setAge(''); setAgency(''); setAgent(''); setManager(''); setTmdbData(null); setKnownRep(false); setError('');
+    } else {
+      setError(result);
+    }
   }
 
   return (
     <div className="add-form open">
       <div className="add-form-row">
         <div className="field" style={{ flex: 1 }}>
-          <label>Name {searching && <span style={{ color: 'var(--ink-faint)', fontSize: 11 }}>searching TMDb...</span>}
-            {tmdbData && !searching && <span style={{ color: 'var(--gold-deep)', fontSize: 11 }}>✓ found on TMDb</span>}
+          <label>
+            Name{' '}
+            {searching && <span style={{ color: 'var(--ink-faint)', fontSize: 11 }}>searching...</span>}
+            {!searching && tmdbData && <span style={{ color: 'var(--gold-deep)', fontSize: 11 }}>✓ TMDb</span>}
+            {!searching && knownRep && <span style={{ color: 'var(--gold-deep)', fontSize: 11 }}> · rep on file</span>}
           </label>
           <input
             value={name}
             onChange={e => setName(e.target.value)}
-            onBlur={e => searchTmdb(e.target.value)}
+            onBlur={e => lookupAll(e.target.value)}
             placeholder="First Last"
             autoFocus
           />
         </div>
-        <div className="field" style={{ maxWidth: 100 }}>
+        <div className="field" style={{ maxWidth: 80 }}>
           <label>Age</label>
           <input type="number" value={age} onChange={e => setAge(e.target.value)} placeholder="—" />
         </div>
-        <div className="field" style={{ maxWidth: 140 }}>
+        <div className="field" style={{ maxWidth: 120 }}>
           <label>Agency</label>
           <input value={agency} onChange={e => setAgency(e.target.value)} placeholder="CAA/WME/UTA" />
         </div>
+        <div className="field" style={{ maxWidth: 120 }}>
+          <label>Agent</label>
+          <input value={agent} onChange={e => setAgent(e.target.value)} placeholder="First Last" />
+        </div>
+        <div className="field" style={{ maxWidth: 120 }}>
+          <label>Manager</label>
+          <input value={manager} onChange={e => setManager(e.target.value)} placeholder="First Last" />
+        </div>
       </div>
+      {error && <div className="gate-error" style={{ marginTop: 8, textAlign: 'left' }}>{error}</div>}
       <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
         <button className="btn btn-ghost" onClick={onCancel} disabled={busy}>Cancel</button>
         <button className="btn" onClick={handleAdd} disabled={busy || !name.trim()}>Add</button>

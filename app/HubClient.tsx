@@ -7,7 +7,8 @@ type Project = {
   id: string;
   slug: string;
   title: string;
-  role: string | null;
+  author: string | null;
+  details: string | null;
   talent_count: number;
   password: string | null;
 };
@@ -15,6 +16,7 @@ type Project = {
 export default function HubClient({ projects }: { projects: Project[] }) {
   const router = useRouter();
   const [showNew, setShowNew] = useState(false);
+  const [editProject, setEditProject] = useState<Project | null>(null);
   const [toastMsg, setToastMsg] = useState('');
 
   function toast(msg: string) {
@@ -53,15 +55,23 @@ export default function HubClient({ projects }: { projects: Project[] }) {
         {projects.map(p => (
           <Link key={p.id} href={`/${p.slug}`} className="project-card">
             <h3>{p.title}</h3>
-            <div className="role-tag">{p.role || '—'}</div>
+            {p.author && <div className="role-tag" style={{ fontSize: 11, marginTop: 2 }}>Written by {p.author}</div>}
+            {p.details && <div className="role-tag" style={{ fontSize: 11, marginTop: 2 }}>{p.details}</div>}
             {p.password && <div className="password-tag">pw: <span className="password">{p.password}</span></div>}
             <div className="meta">
               <span>{p.talent_count} talent</span>
-              <button
-                className="btn btn-ghost"
-                style={{ padding: '3px 8px', fontSize: 9 }}
-                onClick={(e) => { e.preventDefault(); copyLink(p.slug, p.password); }}
-              >Copy link + pw</button>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button
+                  className="btn btn-ghost"
+                  style={{ padding: '3px 8px', fontSize: 9 }}
+                  onClick={(e) => { e.preventDefault(); setEditProject(p); }}
+                >Edit</button>
+                <button
+                  className="btn btn-ghost"
+                  style={{ padding: '3px 8px', fontSize: 9 }}
+                  onClick={(e) => { e.preventDefault(); copyLink(p.slug, p.password); }}
+                >Copy link + pw</button>
+              </div>
             </div>
           </Link>
         ))}
@@ -69,16 +79,79 @@ export default function HubClient({ projects }: { projects: Project[] }) {
       </div>
 
       {showNew && <NewProjectModal onClose={() => setShowNew(false)} onCreated={() => { setShowNew(false); router.refresh(); }} />}
+      {editProject && (
+        <EditProjectModal
+          project={editProject}
+          onClose={() => setEditProject(null)}
+          onSaved={() => { setEditProject(null); router.refresh(); toast('Project updated'); }}
+        />
+      )}
 
       {toastMsg && <div className="toast show">{toastMsg}</div>}
     </div>
   );
 }
 
+function EditProjectModal({ project, onClose, onSaved }: { project: Project; onClose: () => void; onSaved: () => void }) {
+  const [title, setTitle] = useState(project.title);
+  const [author, setAuthor] = useState(project.author || '');
+  const [details, setDetails] = useState(project.details || '');
+  const [password, setPassword] = useState(project.password || '');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    setError('');
+    if (!title || !password) { setError('Title and password required'); return; }
+    setBusy(true);
+    const res = await fetch(`/api/projects/${project.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, author, details, password }),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      setError(j.error || 'Failed to save');
+      return;
+    }
+    onSaved();
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <h3>Edit Project</h3>
+        <div className="field">
+          <label>Title</label>
+          <input value={title} onChange={e => setTitle(e.target.value)} autoFocus />
+        </div>
+        <div className="field">
+          <label>Written by</label>
+          <input value={author} onChange={e => setAuthor(e.target.value)} placeholder="Author name(s)" />
+        </div>
+        <div className="field">
+          <label>Details</label>
+          <input value={details} onChange={e => setDetails(e.target.value)} placeholder="Website, logline, or any notes" />
+        </div>
+        <div className="field">
+          <label>Project Password</label>
+          <input type="text" value={password} onChange={e => setPassword(e.target.value)} />
+        </div>
+        {error && <div className="gate-error" style={{ textAlign: 'left' }}>{error}</div>}
+        <div className="modal-actions">
+          <button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button>
+          <button className="btn" onClick={save} disabled={busy}>{busy ? 'Saving...' : 'Save'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [title, setTitle] = useState('');
-  const [role, setRole] = useState('');
   const [author, setAuthor] = useState('');
+  const [details, setDetails] = useState('');
   const [slug, setSlug] = useState('');
   const [password, setPassword] = useState('');
   const [masterPw, setMasterPw] = useState('');
@@ -99,7 +172,7 @@ function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreate
     const res = await fetch('/api/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, role, author, slug: autoSlug(slug), password, masterPassword: masterPw }),
+      body: JSON.stringify({ title, author, details, slug: autoSlug(slug), password, masterPassword: masterPw }),
     });
     setBusy(false);
     if (!res.ok) {
@@ -119,12 +192,12 @@ function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreate
           <input value={title} onChange={e => { setTitle(e.target.value); setSlug(autoSlug(e.target.value)); }} placeholder="e.g. Peaches" autoFocus />
         </div>
         <div className="field">
-          <label>Role / Tagline</label>
-          <input value={role} onChange={e => setRole(e.target.value)} placeholder="e.g. Anson Lime · Lead" />
-        </div>
-        <div className="field">
           <label>Written by</label>
           <input value={author} onChange={e => setAuthor(e.target.value)} placeholder="Author name(s)" />
+        </div>
+        <div className="field">
+          <label>Details</label>
+          <input value={details} onChange={e => setDetails(e.target.value)} placeholder="Website, logline, or any notes" />
         </div>
         <div className="field">
           <label>Slug (used in URL)</label>

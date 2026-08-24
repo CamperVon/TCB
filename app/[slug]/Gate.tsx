@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-export default function Gate({ projectId, title, role, showBack }: { projectId: string; title: string; role: string | null; showBack?: boolean }) {
+export default function Gate({ projectId, title, showBack }: { projectId: string; title: string; showBack?: boolean }) {
   const router = useRouter();
   const [pw, setPw] = useState('');
   const [error, setError] = useState('');
@@ -34,7 +34,6 @@ export default function Gate({ projectId, title, role, showBack }: { projectId: 
 
       <form className="gate" onSubmit={submit}>
         <h2>{title}</h2>
-        <p>{role || 'Untitled role'}</p>
         <input
           type="password"
           value={pw}

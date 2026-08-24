@@ -10,7 +10,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const tabs = await sql`SELECT id, name, sort_order FROM tabs WHERE project_id = ${id} ORDER BY sort_order, created_at`;
   const talent = await sql`
     SELECT id, tab_id, name, age, imdb_id, photo_url, agency, agent, agent_contact,
-           deal_status, availability, notes, status, sort_order
+           manager, manager_contact, deal_status, availability, notes, status, sort_order
     FROM talent WHERE project_id = ${id}
     ORDER BY sort_order, created_at
   `;

@@ -4,7 +4,7 @@ import { hasProjectAccess } from '@/lib/session';
 
 const ALLOWED_FIELDS = [
   'tab_id', 'name', 'age', 'imdb_id', 'photo_url', 'agency', 'agent',
-  'agent_contact', 'deal_status', 'availability', 'notes', 'status',
+  'agent_contact', 'manager', 'manager_contact', 'deal_status', 'availability', 'notes', 'status',
 ];
 
 async function getProjectIdForTalent(talentId: string): Promise<string | null> {
